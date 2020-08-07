@@ -18,6 +18,7 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 
 public class PdfOutput {
+	private static final String FONT_ARIALUNI = "C:/Windows/Fonts/ARIALUNI.TTF";
 	private static final Log LOG = LogFactory.getLog(PdfOurputMain.class);
 	
 	public void pdfOutputStart() {
@@ -38,8 +39,8 @@ public class PdfOutput {
 		
 		for(String animal : catalogList) {
 			LOG.info("PDF処理開始:" + animal);
-			try{
-				PDDocument doc = new PDDocument();
+			
+			try(PDDocument doc = new PDDocument()){
 				
 				LOG.info("一覧表のPDF処理開始");
 				pdfOutputCatalog(animal,doc);
@@ -55,11 +56,15 @@ public class PdfOutput {
 				}
 				LOG.info("明細表のPDF処理終了");
 				
+				LOG.info("明細書の連番付与処理開始");
+				pdfOutputSerialNumber(doc);
+				LOG.info("明細書の連番付与処理終了");
+				
 				doc.save("C:\\tmp\\" + animal + ".pdf");
-				doc.close();
+				
 				LOG.info("PDF処理終了:" + animal);
 			}catch(IOException ex) {
-				LOG.info("PDF処理異常終了:");
+				LOG.error("PDF処理異常終了:");
 				ex.printStackTrace();
 			}
 		}
@@ -72,14 +77,15 @@ public class PdfOutput {
 		doc.addPage(page);
 		
 		try(PDPageContentStream content = new PDPageContentStream(doc, page)){
-			PDFont font = PDType0Font.load(doc, new File("C:/Windows/Fonts/ARIALUNI.TTF"));
+			PDFont font = PDType0Font.load(doc, new File(FONT_ARIALUNI));
 			content.beginText();
-	        content.setFont(font,12);
-	        content.newLineAtOffset(100f, 500f);
-	        content.showText(animal);
-	        content.endText();
-	        font = null;
+			content.setFont(font,12);
+			content.newLineAtOffset(100f, 500f);
+			content.showText(animal);
+			content.endText();
+			font = null;
 		}catch(IOException e) {
+			LOG.error("一覧表のPDF処理異常終了:");
 			e.printStackTrace();
 		}
 	}
@@ -94,30 +100,28 @@ public class PdfOutput {
 			doc.addPage(page);
 			
 			try(PDPageContentStream content = new PDPageContentStream(doc, page)){
-				PDFont font = PDType0Font.load(doc, new File("C:/Windows/Fonts/ARIALUNI.TTF"));
+				PDFont font = PDType0Font.load(doc, new File(FONT_ARIALUNI));
 				content.beginText();
-		        content.setFont(font,12);
-		        content.newLineAtOffset(100f, 500f);
-		        content.showText(pageText);
-		        content.endText();
-		        font = null;
+				content.setFont(font,12);
+				content.newLineAtOffset(100f, 500f);
+				content.showText(pageText);
+				content.endText();
+				font = null;
 			}catch(IOException e) {
+				LOG.error("明細表のPDF処理異常終了:");
 				e.printStackTrace();
 			}	
 		}
-		
-		LOG.info("明細書の連番付与処理開始");
-		pdfOutputSerialNumber(doc);
-		LOG.info("明細書の連番付与処理終了");
 
 	}
 	
 	//明細書の連番付与処理
 	public void pdfOutputSerialNumber(PDDocument doc) {
 		try {
-			PDFont font = PDType0Font.load(doc, new File("C:/Windows/Fonts/ARIALUNI.TTF"));
+			PDFont font = PDType0Font.load(doc, new File(FONT_ARIALUNI));
 			int count = 0;
 			for(PDPage page : doc.getPages()) {
+				StringBuilder serialNumberText = new StringBuilder();
 				//0ページ目は一覧表のため処理をスキップ
 				if(count == 0) {
 					count++;
@@ -126,13 +130,17 @@ public class PdfOutput {
 				try (PDPageContentStream contentStream = new PDPageContentStream(doc, page, AppendMode.APPEND, true, true)){
 					contentStream.beginText();
 					contentStream.setFont(font, 12);
-					String strCount = String.valueOf(count);
-					contentStream.showText( strCount + "/" +String.valueOf(doc.getNumberOfPages() - 1));
+					serialNumberText.append(count);
+					serialNumberText.append(" / ");
+					serialNumberText.append(doc.getNumberOfPages() - 1);
+					contentStream.showText(serialNumberText.toString());
 					count++;
 					contentStream.endText();
 				}
 			}
+			font = null;
 		}catch(IOException ex) {
+			LOG.error("明細書の連番付与処理異常終了:");
 			ex.printStackTrace();
 		}
 	}
